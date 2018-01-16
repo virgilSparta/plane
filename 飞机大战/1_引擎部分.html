@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title></title>
+		<link rel="stylesheet" type="text/css" href="dahuiji.css"/>
+	</head>
+	<body>
+		<div id="body_main" class="main">
+			<ul id="options" class="options">
+				<li value="1">超级困难</li>
+				<li value="2">非常困难</li>
+				<li value="3">比较困难</li>
+				<li value="4">就选我吧</li>
+			</ul>
+		</div>
+	</body>
+	<script type="text/javascript">
+//		案例分析得出,由四个部分组成:
+//		引擎:初始页面,绑定难度事件,logo,loading
+//		我的飞机:跟随鼠标移动
+//		子弹:我的飞机出来,向上运动,撞到敌机爆炸
+//		敌机:随机从上向下运动,撞到子弹,爆炸,撞到我的飞机,我的飞机爆炸
+
+//		每个部分,写成一个独立的对象
+//		引擎部分
+		function Engine(){
+			this.btn = document.getElementById("options").children;
+			this.body = document.getElementById("body_main");
+			this.difficulty = 0;
+			this.bulletSpeed = 0;
+			this.init();
+			this.abullet = [];
+		}
+		Engine.prototype.init = function(){
+			var that = this;
+			for(var i = 0;i<this.btn.length;i++){
+				this.btn[i].onclick = (function(difficulty){
+					return function(){
+						that.difficulty = difficulty;
+						that.loading();
+					}					
+				})(i)				
+			}
+		}
+		
+		Engine.prototype.loading = function(){
+			var that = this;
+			console.log(this.difficulty);
+			var logo = createDiv("logo");
+			var loading = createDiv("loading");
+			this.btn[0].parentNode.style.display = "none";
+			var i = 1;
+			var loadingTimer = setInterval(function(){
+				loading.style.backgroundImage = "url(images/loading" +(i++%3+1)+".png)"
+			},300);
+			var n = 0;
+			setInterval(function(){
+				that.body.style.backgroundPositionY = n+++"px";
+			},20)
+			setTimeout(function(){
+				clearInterval(loadingTimer);
+				logo.remove();
+				loading.remove();
+				that.gameStart();
+			},2000)			
+		}		
+		Engine.prototype.gameStart = function(){
+			var that = this;
+			//我的飞机出现
+			plane.init(this.body);
+			//我的子弹出现
+			switch(this.difficulty){
+				case 0: this.bulletSpeed = 300;break;
+				case 1: this.bulletSpeed = 200;break;
+				case 2: this.bulletSpeed = 100;break;
+				case 3: this.bulletSpeed = 30;break;
+			}
+			this.bulletTimer = setInterval(function(){
+				that.abullet.push(new Bullet().init(that.body,that.abullet));
+//				console.log(that.abullet);
+			},this.bulletSpeed);
+			//我的敌人出现
+			setInterval(function(){
+				Math.random()>0.5?new Enemy(1,that.body,that.abullet,that.bulletTimer).init():"";				
+			},1000)
+			setInterval(function(){
+				Math.random()>0.6?new Enemy(2,that.body,that.abullet,that.bulletTimer).init():"";	
+			},2000)
+			setInterval(function(){
+				Math.random()>0.8?new Enemy(3,that.body,that.abullet,that.bulletTimer).init():"";	
+			},3000)
+		}
+		
+		//飞机部分
+		var plane = {
+			init:function(body){
+				var that = this;
+				this.score = Score();
+				this.scoreValue = 0;
+				this.body = body;
+				this.myplane = createDiv("my-warplain");
+				this.myplane.style.bottom = 0;
+				this.myplane.style.left = body.offsetWidth/2 - this.myplane.offsetWidth/2 + "px";
+				document.onmousemove = function(eve){
+					var e = eve || event;
+					that.move(e);
+				}
+			},
+			move:function(e){
+				this.l = e.clientX - this.body.offsetLeft - this.myplane.offsetWidth/2;
+				this.t = e.clientY - this.myplane.offsetWidth/2;
+				this.l = this.l<=0?0:this.l;
+				this.l = this.l>=this.body.offsetWidth - this.myplane.offsetWidth?this.body.offsetWidth - this.myplane.offsetWidth:this.l;
+				this.myplane.style.left = this.l + "px";
+				this.myplane.style.top = this.t + "px";
+			},
+			die:function(){
+				var that = this;
+				this.myplane.style.backgroundImage = "url(images/me_die3.png)";
+				setTimeout(function(){
+					that.myplane.remove();					
+				},100);
+				setTimeout(function(){
+					if(confirm("游戏结束，是否重新开始？")){
+						location.reload();
+					}
+				},500);
+			}
+		}
+		
+		//子弹部分
+		function Bullet(){
+		};
+		Bullet.prototype.init = function(ele,abullet){
+			this.body = ele;
+			this.abullet = abullet;
+//			console.log(this.abullet)
+			this.mybullet = createDiv("bullet");
+			this.mybullet.style.left = plane.myplane.offsetLeft + plane.myplane.offsetWidth/2 - this.mybullet.offsetWidth/2 +"px";
+			this.mybullet.style.top = plane.myplane.offsetTop - this.mybullet.offsetHeight + "px";
+			this.move();
+			return this;	
+		}
+		Bullet.prototype.move = function(){
+			var that = this;
+			this.mybullet.timer = setInterval(function(){
+				that.mybullet.style.top = that.mybullet.offsetTop - 10 + "px";
+				if(that.mybullet.offsetTop<=0){
+					that.die();
+				}
+			},30)
+		}	
+		Bullet.prototype.die = function(){
+			var that = this;
+			this.mybullet.className = "bullet_die";
+			for(var i = 0;i<this.abullet.length;i++){
+				if(this.mybullet == this.abullet[i].mybullet){
+					this.abullet.splice(i,1);
+				}
+			}
+			clearInterval(this.mybullet.timer);
+			setTimeout(function(){
+				that.mybullet.remove();	
+			},100);			
+		}
+		
+		//敌人部分
+		class Enemy{
+			constructor(type,ele,abullet,bulletTimer){
+				this.body = ele;
+				this.type = type;
+				this.abullet = abullet;
+				this.bulletTimer = bulletTimer;
+			};
+			init (){
+				switch(this.type){
+					case 1:this.enemy = createDiv("enemy-small");
+							this.speed = 3;
+							this.hp = 2;
+							this.i = 3;
+							break;
+					case 2:this.enemy = createDiv("enemy-middle");
+							this.speed = 2;
+							this.hp = 5;
+							this.i = 4;
+							break;
+					case 3:this.enemy = createDiv("enemy-large");
+							this.speed = 1;
+							this.hp = 10;
+							this.i = 6;
+				}				
+				this.move();
+				console.log(this.abullet);
+			}
+			move (){
+				var that = this;
+				this.enemy.style.top = -this.enemy.offsetHeight + "px";
+				var l = Math.round(Math.random()*(this.body.offsetWidth - this.enemy.offsetWidth));
+				this.enemy.style.left = l + "px";
+				this.enemy.timer = setInterval(function(){
+					that.enemy.style.top = that.enemy.offsetTop + that.speed + "px";	
+					//敌机爆炸
+					if(that.enemy.offsetTop>=that.body.offsetHeight){
+						that.die();
+						
+					}
+					//子弹与敌机爆炸
+					for(var i = 0;i<that.abullet.length;i++){
+						if(that.abullet[i].mybullet.offsetLeft+that.abullet[i].mybullet.offsetWidth>that.enemy.offsetLeft && that.abullet[i].mybullet.offsetLeft<that.enemy.offsetLeft+that.enemy.offsetWidth && that.abullet[i].mybullet.offsetTop < that.enemy.offsetTop+that.enemy.offsetHeight && that.abullet[i].mybullet.offsetTop+that.abullet[i].mybullet.offsetHeight > that.enemy.offsetTop){
+							that.abullet[i].die();
+							that.hp--;
+							if(that.hp == 0){
+								that.enemy.a = 1;
+								that.DieTimer = setInterval(function(){
+									that.enemy.style.backgroundImage = "url(images/plane"+that.type+"_die"+that.enemy.a+++".png)"
+									console.log(that.enemy.a);
+									if(that.enemy.a>=that.i+1){
+										clearInterval(that.DieTimer);
+										setTimeout(function(){
+											that.die();											
+										},200)
+									}
+								},200)
+								switch(that.type){
+									case 1:plane.scoreValue+=2;break;
+									case 2:plane.scoreValue+=5;break;
+									case 3:plane.scoreValue+=10;break;
+								}
+								plane.score.nodeValue = "Score："+plane.scoreValue;
+							}
+						}
+					}
+					//我的飞机爆炸
+					if(plane.myplane.offsetLeft+plane.myplane.offsetWidth>that.enemy.offsetLeft && plane.myplane.offsetLeft<that.enemy.offsetLeft+that.enemy.offsetWidth && plane.myplane.offsetTop < that.enemy.offsetTop+that.enemy.offsetHeight && plane.myplane.offsetTop+plane.myplane.offsetHeight>that.enemy.offsetTop){
+						plane.die();//我的飞机死
+						clearInterval(that.bulletTimer);//清除子弹定时器	
+					}
+					
+				},30)
+			}
+			die (){
+				clearInterval(this.enemy.timer);				
+				this.enemy.remove();				
+			}
+		}
+		
+		
+		
+		new Engine();
+		function createDiv(myclass){
+			var div = document.createElement("div");
+			div.className = myclass;
+			document.getElementById("body_main").appendChild(div);
+			return div;
+		}
+		function Score(){
+			var score = document.createTextNode("Score");
+			score.nodeValue = "Score：";
+			document.getElementById("body_main").appendChild(score);
+			return score;
+		}
+	</script>
+</html>
